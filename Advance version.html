@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Advanced Overlay</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      background: transparent;
+      font-family: Arial, sans-serif;
+      color: white;
+    }
+    .overlay {
+      background: rgba(0,0,0,0.6);
+      border-radius: 16px;
+      padding: 12px 20px;
+      display: inline-block;
+      min-width: 480px;
+    }
+    .teams {
+      display: flex; justify-content: space-between;
+      align-items: center;
+      font-size: 20px; font-weight: bold;
+      margin-bottom: 6px;
+    }
+    .team {
+      display: flex; align-items: center;
+    }
+    .team img {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .score {
+      font-size: 22px;
+      font-weight: bold;
+      color: #ffd700;
+    }
+    .status {
+      font-size: 14px; margin-top: 4px; color: #ddd;
+    }
+    .info-bar {
+      font-size: 14px;
+      margin-top: 8px;
+      padding: 4px 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+      display: flex; justify-content: space-between;
+    }
+    .section {
+      margin-top: 10px;
+    }
+    h4 {
+      margin: 4px 0; font-size: 15px; color: #90ee90;
+    }
+    .player {
+      font-size: 14px;
+      display: flex; justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="overlay">
+    <div class="teams">
+      <div class="team" id="teamA">
+        <img id="teamALogo" src="" alt="">
+        <span id="teamAName">Team A</span>
+      </div>
+      <div class="score" id="scoreA">0/0 (0.0)</div>
+    </div>
+
+    <div class="teams">
+      <div class="team" id="teamB">
+        <img id="teamBLogo" src="" alt="">
+        <span id="teamBName">Team B</span>
+      </div>
+      <div class="score" id="scoreB">0/0 (0.0)</div>
+    </div>
+
+    <div class="status" id="status">Status: Loading...</div>
+
+    <div class="info-bar">
+      <div>RR: <span id="rr">-</span></div>
+      <div>RRR: <span id="rrr">-</span></div>
+      <div>Last: <span id="last">-</span></div>
+    </div>
+
+    <div class="section">
+      <h4>Batsmen</h4>
+      <div id="batsmen"></div>
+    </div>
+
+    <div class="section">
+      <h4>Bowlers</h4>
+      <div id="bowlers"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    import { firebaseConfig } from "./firebase-config.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const matchId = urlParams.get("id");
+
+    function listenData() {
+      onValue(ref(db,"matches/"+matchId), snap=>{
+        const data=snap.val();
+        if(!data) return;
+        const s=data.score||{};
+        
+        // Teams & scores
+        document.getElementById("teamAName").innerText = s.teamA?.name||"Team A";
+        document.getElementById("teamBName").innerText = s.teamB?.name||"Team B";
+        document.getElementById("scoreA").innerText = `${s.teamA?.runs||0}/${s.teamA?.wickets||0} (${s.teamA?.overs||"0.0"})`;
+        document.getElementById("scoreB").innerText = `${s.teamB?.runs||0}/${s.teamB?.wickets||0} (${s.teamB?.overs||"0.0"})`;
+        if(s.teamA?.logo) document.getElementById("teamALogo").src = s.teamA.logo;
+        if(s.teamB?.logo) document.getElementById("teamBLogo").src = s.teamB.logo;
+
+        document.getElementById("status").innerText = s.status||"";
+
+        document.getElementById("rr").innerText=s.rr||"-";
+        document.getElementById("rrr").innerText=s.rrr||"-";
+        document.getElementById("last").innerText=s.last||"-";
+
+        // Batsmen
+        const batsmen=data.batsmen||{};
+        const batsmenDiv=document.getElementById("batsmen");
+        batsmenDiv.innerHTML="";
+        Object.values(batsmen).forEach(b=>{
+          const div=document.createElement("div");
+          div.className="player";
+          div.innerHTML=`<span>${b.name}</span><span>${b.runs} (${b.balls})</span>`;
+          batsmenDiv.appendChild(div);
+        });
+
+        // Bowlers
+        const bowlers=data.bowlers||{};
+        const bowlersDiv=document.getElementById("bowlers");
+        bowlersDiv.innerHTML="";
+        Object.values(bowlers).forEach(b=>{
+          const div=document.createElement("div");
+          div.className="player";
+          div.innerHTML=`<span>${b.name}</span><span>${b.overs} ov, ${b.runs} runs, ${b.wkts} wkts</span>`;
+          bowlersDiv.appendChild(div);
+        });
+      });
+    }
+
+    listenData();
+  </script>
+</body>
+</html>

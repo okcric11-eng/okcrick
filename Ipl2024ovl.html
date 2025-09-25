@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IPL 2024 Overlay</title>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      background: transparent;
+      font-family: "Segoe UI", sans-serif;
+      color: #fff;
+    }
+
+    /* Main Scoreboard */
+    .scoreboard {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(90deg, #2e005c, #6e00b3);
+      padding: 12px 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+      min-width: 700px;
+    }
+
+    .team {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .team img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #ffd700;
+    }
+
+    .team-name {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ffd700;
+      text-transform: uppercase;
+    }
+
+    .score {
+      font-size: 30px;
+      font-weight: bold;
+      color: #ffffff;
+    }
+
+    .overs {
+      font-size: 14px;
+      color: #ddd;
+      text-align: center;
+    }
+
+    .vs {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 0 14px;
+      color: #ffd700;
+    }
+
+    /* Status Bar */
+    .status-bar {
+      margin-top: 8px;
+      background: rgba(0,0,0,0.7);
+      padding: 6px 14px;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+
+    /* Bottom Strip */
+    .bottom-strip {
+      margin-top: 10px;
+      background: linear-gradient(90deg, #111, #222);
+      padding: 8px 14px;
+      border-radius: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      margin: 3px 0;
+    }
+
+    h4 {
+      margin: 4px 0;
+      font-size: 15px;
+      color: #90ee90;
+    }
+  </style>
+</head>
+<body>
+  <!-- Scoreboard -->
+  <div class="scoreboard">
+    <div class="team">
+      <img id="teamALogo" src="" alt="">
+      <span class="team-name" id="teamAName">CSK</span>
+    </div>
+    <div>
+      <div class="score" id="scoreA">0/0</div>
+      <div class="overs" id="oversA">(0.0)</div>
+    </div>
+
+    <span class="vs">VS</span>
+
+    <div>
+      <div class="score" id="scoreB">0/0</div>
+      <div class="overs" id="oversB">(0.0)</div>
+    </div>
+    <div class="team">
+      <span class="team-name" id="teamBName">MI</span>
+      <img id="teamBLogo" src="" alt="">
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <div>CRR: <span id="rr">-</span></div>
+    <div>RRR: <span id="rrr">-</span></div>
+    <div>Partnership: <span id="partnership">-</span></div>
+    <div>Last Over: <span id="last">-</span></div>
+  </div>
+
+  <!-- Bottom Strip -->
+  <div class="bottom-strip">
+    <h4>Batsmen</h4>
+    <div id="batsmen"></div>
+
+    <h4>Bowler</h4>
+    <div id="bowlers"></div>
+  </div>
+
+  <!-- Firebase Live Update -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+    import { firebaseConfig } from "./firebase-config.js";
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const matchId = urlParams.get("id");
+
+    function listenData() {
+      onValue(ref(db, "matches/" + matchId), snap => {
+        const data = snap.val();
+        if (!data) return;
+        const s = data.score || {};
+
+        // Team A
+        document.getElementById("teamAName").innerText = s.teamA?.short || "TEAM A";
+        document.getElementById("scoreA").innerText = `${s.teamA?.runs || 0}/${s.teamA?.wickets || 0}`;
+        document.getElementById("oversA").innerText = `(${s.teamA?.overs || "0.0"})`;
+        if (s.teamA?.logo) document.getElementById("teamALogo").src = s.teamA.logo;
+
+        // Team B
+        document.getElementById("teamBName").innerText = s.teamB?.short || "TEAM B";
+        document.getElementById("scoreB").innerText = `${s.teamB?.runs || 0}/${s.teamB?.wickets || 0}`;
+        document.getElementById("oversB").innerText = `(${s.teamB?.overs || "0.0"})`;
+        if (s.teamB?.logo) document.getElementById("teamBLogo").src = s.teamB.logo;
+
+        // Status
+        document.getElementById("rr").innerText = s.rr || "-";
+        document.getElementById("rrr").innerText = s.rrr || "-";
+        document.getElementById("partnership").innerText = s.partnership || "-";
+        document.getElementById("last").innerText = s.last || "-";
+
+        // Batsmen
+        const batsmen = data.batsmen || {};
+        const batsmenDiv = document.getElementById("batsmen");
+        batsmenDiv.innerHTML = "";
+        Object.values(batsmen).forEach(b => {
+          const div = document.createElement("div");
+          div.className = "row";
+          div.innerHTML = `<span>${b.name}</span>
+                           <span>${b.runs} (${b.balls}) | SR: ${b.sr}</span>`;
+          batsmenDiv.appendChild(div);
+        });
+
+        // Bowler
+        const bowlers = data.bowlers || {};
+        const bowlersDiv = document.getElementById("bowlers");
+        bowlersDiv.innerHTML = "";
+        Object.values(bowlers).forEach(b => {
+          const div = document.createElement("div");
+          div.className = "row";
+          div.innerHTML = `<span>${b.name}</span>
+                           <span>${b.overs} ov | ${b.runs} runs | Econ: ${b.econ}</span>`;
+          bowlersDiv.appendChild(div);
+        });
+      });
+    }
+
+    listenData();
+  </script>
+</body>
+</html>
